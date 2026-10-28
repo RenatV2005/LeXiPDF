@@ -1,43 +1,49 @@
-# LexiPDF
+# 🦅 LexiPDF
 
-PDF-Reader mit Wortauswahl, Übersetzung und Vokabelliste.  
-Aktueller Stand: Milestone 1 — Upload, Viewer, Wortauswahl.
+**A modern PDF reader with text selection, translation, and vocabulary management.**
 
-## Voraussetzungen
+LexiPDF is a PDF reading application developed under the **IT FOR ALL** brand. Its goal is to make reading and understanding documents in foreign languages easier by combining PDF viewing, text selection, translation, and vocabulary management in one application.
 
-- Docker und Docker Compose
+> **Current status:** Milestone 1 — PDF upload, document viewer, and text selection.
 
-## Start
+---
 
-```bash
-cp .env.example .env
-# POSTGRES_PASSWORD in .env setzen
+## ✨ Features
 
-docker compose up --build
-```
+### Implemented
+- 📄 Upload PDF documents
+- 📖 View uploaded PDFs in the browser
+- 🔎 Select text directly in the PDF
+- 🌓 Light and dark mode
+- 🗂️ Document list in the sidebar
+- 🐳 Docker-based development environment
+- 🗄️ PostgreSQL database integration
+- ❤️ Backend health-check endpoints
 
-Frontend: http://localhost:3000  
-Backend API: http://localhost:8000  
-Health: http://localhost:8000/health  
-DB-Health: http://localhost:8000/health/db
+### Planned
+- 🌐 Translate selected text
+- 📚 Display word definitions
+- 📝 Save and manage vocabulary
+- 🚀 Automated CI/CD pipeline
+- ☸️ Kubernetes deployment
 
-## Tests (Backend)
+---
 
-```bash
-cd backend
-pip install -r requirements.txt
-pytest tests/
-```
+## 🏗️ Architecture
 
-## Stop
+LexiPDF uses a containerized architecture with separate frontend, backend, and database services.
 
-```bash
-docker compose down         # Container stoppen
-docker compose down -v      # + Volumes löschen (Daten weg)
-```
+| Component | Technology | Purpose |
+|---|---|---|
+| Frontend | React, TypeScript, Vite | User interface and PDF viewer |
+| Backend | Python, FastAPI | REST API and document handling |
+| Database | PostgreSQL 16 | Document metadata and application data |
+| Infrastructure | Docker Compose | Local development environment |
 
-## Nächste Milestones
+### Application endpoints
 
-- **Milestone 2:** Wortauswahl → `/api/lookup` → Übersetzung + Definition
-- **Milestone 3:** Vokabelliste speichern, abrufen, löschen
-- **Milestone 4:** CI/CD, Container Registry, Kubernetes
+| Service | URL |
+|---|---|
+| Frontend | [http://localhost:3000](http://localhost:3000) |
+| Backend API | [http://localhost:8000](http://localhost:8000) |
+| API documentation |
