@@ -1,0 +1,16 @@
+---
+- name: Sicherstellen, dass die benötigten Pakete installiert sind
+  hosts: lexipdf
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Aktualisiere die Paketliste
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Apt Software Installieren
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+      loop: "{{ packages.software.apt }}"

@@ -1,0 +1,8 @@
+packages:
+
+  software:
+
+    apt:
+      - docker.io
+      - docker-compose-v2
+      - docker-buildx
