@@ -38,6 +38,7 @@ jobs:
         working-directory: backend
         env:
           PYTHONPATH: .
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
         run: pytest -q
 
   build-and-push:
