@@ -44,7 +44,7 @@ jobs:
   build-and-push:
     name: Build and push images
     needs: test
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
