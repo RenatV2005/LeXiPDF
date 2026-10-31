@@ -9,7 +9,8 @@
 *.key
 secrets/
 secrets.*
-
+deploy/database/.env
+deploy/application/.env
 # =========================
 # Python
 # =========================
