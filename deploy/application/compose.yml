@@ -11,7 +11,7 @@ services:
     restart: "no"
 
   backend:
-    image: ghcr.io/renatv2005/lexipdf-backend:1.0.0
+    image: ghcr.io/renatv2005/lexipdf-backend:latest
     restart: unless-stopped
 
     environment:
@@ -27,7 +27,7 @@ services:
         condition: service_completed_successfully
 
   frontend:
-    image: ghcr.io/renatv2005/lexipdf-frontend:1.0.0
+    image: ghcr.io/renatv2005/lexipdf-frontend:latest
     restart: unless-stopped
 
     ports:
