@@ -11,7 +11,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
   deploy:
@@ -31,18 +30,22 @@ jobs:
       - name: Install Ansible Docker collection
         run: ansible-galaxy collection install community.docker
 
-      - name: Validate deployment templates exist
+      - name: Validate required files
         run: |
-          test -f ansible/templates/.application-env.j2
-          test -f ansible/templates/.database-env.j2
+          test -f deploy/application/compose.yml
+          test -f deploy/database/compose.yml
+          test -f ansible/templates/.application-env.example.j2
+          test -f ansible/templates/.database-env.example.j2
 
-      - name: Deploy database and application
+      - name: Check Ansible syntax
         run: |
           ansible-playbook \
             -i ansible/inventory/lexipdf.ini \
             ansible/playbooks/cd-deployment.yml \
             --syntax-check
 
+      - name: Deploy LEXiPDF
+        run: |
           ansible-playbook \
             -i ansible/inventory/lexipdf.ini \
             ansible/playbooks/cd-deployment.yml

@@ -1,0 +1,37 @@
+services:
+  init-uploads:
+    image: alpine:3.22
+    user: "1000:1000"
+    command:
+      - sh
+      - -c
+      - test -d /uploads && test -w /uploads
+    volumes:
+      - /srv/lexipdf/uploads:/uploads
+    restart: "no"
+
+  backend:
+    image: ghcr.io/renatv2005/lexipdf-backend:latest
+    restart: unless-stopped
+
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      UPLOAD_DIR: /uploads
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-20}
+
+    volumes:
+      - /srv/lexipdf/uploads:/uploads
+
+    depends_on:
+      init-uploads:
+        condition: service_completed_successfully
+
+  frontend:
+    image: ghcr.io/renatv2005/lexipdf-frontend:latest
+    restart: unless-stopped
+
+    ports:
+      - "3000:80"
+
+    depends_on:
+      - backend

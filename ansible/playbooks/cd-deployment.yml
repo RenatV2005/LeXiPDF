@@ -7,9 +7,10 @@
 
   vars:
     deployment_dir: /opt/lexipdf/database
+    repository_dir: "{{ playbook_dir }}/../.."
 
   tasks:
-    - name: Ensure database deployment directory exists
+    - name: Create database deployment directory
       ansible.builtin.file:
         path: "{{ deployment_dir }}"
         state: directory
@@ -17,31 +18,30 @@
         group: root
         mode: "0750"
 
-    - name: Render database Compose configuration
+    - name: Render database Compose file
       ansible.builtin.template:
-        src: "../../deploy/database/compose.yml"
+        src: "{{ repository_dir }}/deploy/database/compose.yml"
         dest: "{{ deployment_dir }}/compose.yml"
         owner: root
         group: root
         mode: "0640"
-      register: database_compose
 
-    - name: Render database environment configuration
+    - name: Generate database environment file from secret template
       ansible.builtin.template:
-        src: "../templates/.database-env.j2"
+        src: "{{ repository_dir }}/ansible/templates/secret-templates/.database-env.j2"
         dest: "{{ deployment_dir }}/.env"
         owner: root
         group: root
         mode: "0600"
       no_log: true
 
-    - name: Pull database image
+    - name: Pull database image and start service
       community.docker.docker_compose_v2:
         project_src: "{{ deployment_dir }}"
         pull: always
         state: present
 
-    - name: Wait for PostgreSQL to become healthy
+    - name: Wait for PostgreSQL to become ready
       ansible.builtin.command:
         argv:
           - docker
@@ -67,9 +67,10 @@
 
   vars:
     deployment_dir: /opt/lexipdf/application
+    repository_dir: "{{ playbook_dir }}/../.."
 
   tasks:
-    - name: Ensure application deployment directory exists
+    - name: Create application deployment directory
       ansible.builtin.file:
         path: "{{ deployment_dir }}"
         state: directory
@@ -77,17 +78,17 @@
         group: root
         mode: "0750"
 
-    - name: Render application Compose configuration
+    - name: Render application Compose file
       ansible.builtin.template:
-        src: "../../deploy/application/compose.yml"
+        src: "{{ repository_dir }}/deploy/application/compose.yml"
         dest: "{{ deployment_dir }}/compose.yml"
         owner: root
         group: root
         mode: "0640"
 
-    - name: Render application environment configuration
+    - name: Generate application environment file from secret template
       ansible.builtin.template:
-        src: "../templates/.application-env.j2"
+        src: "{{ repository_dir }}/ansible/templates/secret-templates/.application-env.j2"
         dest: "{{ deployment_dir }}/.env"
         owner: root
         group: root

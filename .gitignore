@@ -3,7 +3,6 @@
 # Environment variables & secrets
 # =========================
 .env
-.env.*
 !.env.example
 *.pem
 *.key
@@ -11,8 +10,7 @@ secrets/
 secrets.*
 deploy/database/.env
 deploy/application/.env
-ansible/templates/
-ansible/templates/.*
+ansible/templates/secret-templates/*
 # =========================
 # Python
 # =========================
