@@ -1,0 +1,115 @@
+
+---
+- name: Deploy LEXiPDF database
+  hosts: database_server_01
+  become: true
+  gather_facts: false
+
+  vars:
+    deployment_dir: /opt/lexipdf/database
+
+  tasks:
+    - name: Ensure database deployment directory exists
+      ansible.builtin.file:
+        path: "{{ deployment_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Render database Compose configuration
+      ansible.builtin.template:
+        src: "../../deploy/database/compose.yml"
+        dest: "{{ deployment_dir }}/compose.yml"
+        owner: root
+        group: root
+        mode: "0640"
+      register: database_compose
+
+    - name: Render database environment configuration
+      ansible.builtin.template:
+        src: "../templates/.database-env.j2"
+        dest: "{{ deployment_dir }}/.env"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+    - name: Pull database image
+      community.docker.docker_compose_v2:
+        project_src: "{{ deployment_dir }}"
+        pull: always
+        state: present
+
+    - name: Wait for PostgreSQL to become healthy
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - exec
+          - -T
+          - postgres
+          - sh
+          - -c
+          - 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+        chdir: "{{ deployment_dir }}"
+      register: postgres_health
+      changed_when: false
+      retries: 12
+      delay: 5
+      until: postgres_health.rc == 0
+
+
+- name: Deploy LEXiPDF application
+  hosts: application_server_01
+  become: true
+  gather_facts: false
+
+  vars:
+    deployment_dir: /opt/lexipdf/application
+
+  tasks:
+    - name: Ensure application deployment directory exists
+      ansible.builtin.file:
+        path: "{{ deployment_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Render application Compose configuration
+      ansible.builtin.template:
+        src: "../../deploy/application/compose.yml"
+        dest: "{{ deployment_dir }}/compose.yml"
+        owner: root
+        group: root
+        mode: "0640"
+
+    - name: Render application environment configuration
+      ansible.builtin.template:
+        src: "../templates/.application-env.j2"
+        dest: "{{ deployment_dir }}/.env"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+    - name: Pull application images and start services
+      community.docker.docker_compose_v2:
+        project_src: "{{ deployment_dir }}"
+        pull: always
+        state: present
+
+    - name: Check application containers
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - ps
+        chdir: "{{ deployment_dir }}"
+      register: application_status
+      changed_when: false
+
+    - name: Display application container status
+      ansible.builtin.debug:
+        var: application_status.stdout

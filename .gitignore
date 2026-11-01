@@ -11,6 +11,8 @@ secrets/
 secrets.*
 deploy/database/.env
 deploy/application/.env
+ansible/templates/
+ansible/templates/.*
 # =========================
 # Python
 # =========================
