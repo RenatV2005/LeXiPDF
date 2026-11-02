@@ -41,6 +41,7 @@
   vars:
     deployment_dir: /opt/lexipdf/database
     repository_dir: "{{ playbook_dir }}/../.."
+    ansible_ssh_private_key_file: /home/renatdebianroot/.ssh/proxmox_ansible
 
   tasks:
     - name: Create database deployment directory
@@ -110,6 +111,7 @@
   vars:
     deployment_dir: /opt/lexipdf/application
     repository_dir: "{{ playbook_dir }}/../.."
+    ansible_ssh_private_key_file: /home/renatdebianroot/.ssh/proxmox_ansible
 
   tasks:
     - name: Create application deployment directory
