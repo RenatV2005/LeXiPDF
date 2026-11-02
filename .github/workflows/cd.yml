@@ -1,0 +1,77 @@
+
+name: LEXiPDF CD
+
+on:
+  workflow_run:
+    workflows: ["LEXiPDF CI"]
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: lexipdf-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+
+    name: Deploy LEXiPDF to production
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: [self-hosted, Linux, X64]
+
+    steps:
+      - name: Checkout merged main revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Install Ansible Docker collection
+        run: ansible-galaxy collection install community.docker
+
+      - name: Provide local secret templates
+        env:
+          LOCAL_REPO: /home/renatdebianroot/DevOps/lexipdf
+        run: |
+          set -euo pipefail
+
+          install -d -m 700 ansible/templates/secret-templates
+
+          test -f "$LOCAL_REPO/ansible/templates/secret-templates/.database-env.j2"
+          test -f "$LOCAL_REPO/ansible/templates/secret-templates/.application-env.j2"
+
+          install -m 600 \
+            "$LOCAL_REPO/ansible/templates/secret-templates/.database-env.j2" \
+            ansible/templates/secret-templates/.database-env.j2
+
+          install -m 600 \
+            "$LOCAL_REPO/ansible/templates/secret-templates/.application-env.j2" \
+            ansible/templates/secret-templates/.application-env.j2
+
+      - name: Validate deployment with Ansible
+        run: |
+          ansible-playbook \
+            -i ansible/inventory/lexipdf.ini \
+            ansible/playbooks/cd-deployment.yml \
+            --syntax-check
+
+          ansible-playbook \
+            -i ansible/inventory/lexipdf.ini \
+            ansible/playbooks/cd-deployment.yml \
+            --list-hosts
+
+      - name: Deploy database and application
+        env:
+          GHCR_USERNAME: RenatV2005
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          ansible-playbook \
+            -i ansible/inventory/lexipdf.ini \
+            ansible/playbooks/cd-deployment.yml
