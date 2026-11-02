@@ -1,5 +1,37 @@
 
 ---
+- name: Validate LEXiPDF deployment configuration
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    repository_dir: "{{ playbook_dir }}/../.."
+
+  tasks:
+    - name: Check required deployment files
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ repository_dir }}/deploy/database/compose.yml"
+        - "{{ repository_dir }}/deploy/application/compose.yml"
+        - "{{ repository_dir }}/ansible/templates/.database-env.example.j2"
+        - "{{ repository_dir }}/ansible/templates/.application-env.example.j2"
+        - "{{ repository_dir }}/ansible/templates/secret-templates/.database-env.j2"
+        - "{{ repository_dir }}/ansible/templates/secret-templates/.application-env.j2"
+      register: required_files
+
+    - name: Fail if a required file is missing
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isreg
+        fail_msg: "Required file is missing: {{ item.item }}"
+      loop: "{{ required_files.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+
 - name: Deploy LEXiPDF database
   hosts: database_server_01
   become: true
@@ -18,15 +50,15 @@
         group: root
         mode: "0750"
 
-    - name: Render database Compose file
-      ansible.builtin.template:
+    - name: Copy existing database Compose file
+      ansible.builtin.copy:
         src: "{{ repository_dir }}/deploy/database/compose.yml"
         dest: "{{ deployment_dir }}/compose.yml"
         owner: root
         group: root
         mode: "0640"
 
-    - name: Generate database environment file from secret template
+    - name: Generate database environment file
       ansible.builtin.template:
         src: "{{ repository_dir }}/ansible/templates/secret-templates/.database-env.j2"
         dest: "{{ deployment_dir }}/.env"
@@ -35,13 +67,13 @@
         mode: "0600"
       no_log: true
 
-    - name: Pull database image and start service
+    - name: Pull database image and start PostgreSQL
       community.docker.docker_compose_v2:
         project_src: "{{ deployment_dir }}"
         pull: always
         state: present
 
-    - name: Wait for PostgreSQL to become ready
+    - name: Wait for PostgreSQL readiness
       ansible.builtin.command:
         argv:
           - docker
@@ -78,15 +110,15 @@
         group: root
         mode: "0750"
 
-    - name: Render application Compose file
-      ansible.builtin.template:
+    - name: Copy existing application Compose file
+      ansible.builtin.copy:
         src: "{{ repository_dir }}/deploy/application/compose.yml"
         dest: "{{ deployment_dir }}/compose.yml"
         owner: root
         group: root
         mode: "0640"
 
-    - name: Generate application environment file from secret template
+    - name: Generate application environment file
       ansible.builtin.template:
         src: "{{ repository_dir }}/ansible/templates/secret-templates/.application-env.j2"
         dest: "{{ deployment_dir }}/.env"
@@ -101,7 +133,7 @@
         pull: always
         state: present
 
-    - name: Check application containers
+    - name: Check application container status
       ansible.builtin.command:
         argv:
           - docker

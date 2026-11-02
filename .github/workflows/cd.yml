@@ -11,40 +11,62 @@ on:
 
 permissions:
   contents: read
+  packages: read
+
+concurrency:
+  group: lexipdf-production-deployment
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy LEXiPDF
+    name: Deploy LEXiPDF to production
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push'
     runs-on: [self-hosted, Linux, X64]
 
     steps:
-      - name: Checkout deployed revision
+      - name: Checkout merged main revision
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-          clean: false
 
       - name: Install Ansible Docker collection
         run: ansible-galaxy collection install community.docker
 
-      - name: Validate required files
+      - name: Provide local secret templates
+        env:
+          LOCAL_REPO: /home/renatdebianroot/DevOps/lexipdf
         run: |
-          test -f deploy/application/compose.yml
-          test -f deploy/database/compose.yml
-          test -f ansible/templates/.application-env.example.j2
-          test -f ansible/templates/.database-env.example.j2
+          set -euo pipefail
 
-      - name: Check Ansible syntax
+          install -d -m 700 ansible/templates/secret-templates
+
+          test -f "$LOCAL_REPO/ansible/templates/secret-templates/.database-env.j2"
+          test -f "$LOCAL_REPO/ansible/templates/secret-templates/.application-env.j2"
+
+          install -m 600 \
+            "$LOCAL_REPO/ansible/templates/secret-templates/.database-env.j2" \
+            ansible/templates/secret-templates/.database-env.j2
+
+          install -m 600 \
+            "$LOCAL_REPO/ansible/templates/secret-templates/.application-env.j2" \
+            ansible/templates/secret-templates/.application-env.j2
+
+      - name: Validate deployment with Ansible
         run: |
           ansible-playbook \
             -i ansible/inventory/lexipdf.ini \
             ansible/playbooks/cd-deployment.yml \
             --syntax-check
 
-      - name: Deploy LEXiPDF
+          ansible-playbook \
+            -i ansible/inventory/lexipdf.ini \
+            ansible/playbooks/cd-deployment.yml \
+            --list-hosts
+
+      - name: Deploy database and application
         run: |
           ansible-playbook \
             -i ansible/inventory/lexipdf.ini \
