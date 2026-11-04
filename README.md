@@ -1,199 +1,100 @@
-# 🦅 LexiPDF
+# 🦅 LexiPDF – IT FOR ALL
 
-**Ein moderner PDF-Reader mit Textauswahl, Übersetzung und Vokabelverwaltung.**
+Moderner PDF-Reader mit Textauswahl, Übersetzung und geplanter Vokabelverwaltung.
 
-LexiPDF ist eine PDF-Leseanwendung unter der Marke **IT FOR ALL**. Ziel des Projekts ist es, das Lesen und Verstehen fremdsprachiger Dokumente zu erleichtern, indem PDF-Anzeige, Textauswahl, Übersetzung und Vokabelverwaltung in einer Anwendung kombiniert werden.
+## 🏗️ Tech Stack & DevOps
 
-> **Aktueller Entwicklungsstand:** Meilenstein 1 – PDF-Upload, Dokumentenanzeige und Textauswahl.
+- **Frontend:** React, TypeScript, Vite
+- **Backend:** Python, FastAPI
+- **Database:** PostgreSQL 16
+- **Containerisierung:** Docker, Docker Compose
+- **Automation:** Ansible
+- **Container Registry:** GitHub Container Registry (GHCR)
+- **CI/CD:** GitHub Actions
+- **Deployment:** Self-hosted GitHub Actions Runner
+- **Secrets:** GitHub Actions Repository Secrets
 
----
+## ⚙️ Infrastruktur & Deployment
 
-## ✨ Funktionen
+Die Anwendung verwendet eine automatisierte CI/CD-Pipeline:
 
-### Bereits implementiert
+1. GitHub Actions führt Tests aus und erstellt Docker Images.
+2. Die Images werden in GHCR veröffentlicht.
+3. Nach erfolgreicher CI startet der CD-Workflow.
+4. Der Self-hosted Runner führt das Ansible-Deployment aus.
+5. Ansible verbindet sich per SSH mit den Servern und deployed die Container über Docker Compose.
 
-- 📄 PDF-Dokumente hochladen
-- 📖 Hochgeladene PDFs im Browser anzeigen
-- 🔎 Text direkt im PDF markieren
-- 🌓 Hell- und Dunkelmodus
-- 🗂️ Dokumentenübersicht in der Seitenleiste
-- 🐳 Docker-basierte Entwicklungsumgebung
-- 🗄️ PostgreSQL-Datenbankintegration
-- ❤️ Health-Check-Endpunkte für das Backend
+## 🚀 Self-hosted GitHub Actions Runner installieren
 
-### Geplant
+Der Runner wird auf dem Debian-Host installiert und führt die CD-Workflows direkt in der eigenen Infrastruktur aus.
 
-- 🌐 Markierten Text übersetzen
-- 📚 Wortdefinitionen anzeigen
-- 📝 Vokabeln speichern und verwalten
-- 🚀 Automatisierte CI/CD-Pipeline
-- ☸️ Bereitstellung über Kubernetes
+### 1. Runner in GitHub erstellen
 
----
+Im GitHub-Repository:
 
-## 🏗️ Architektur
+`Settings → Actions → Runners → New self-hosted runner`
 
-LexiPDF verwendet eine containerisierte Architektur mit getrennten Diensten für Frontend, Backend und Datenbank.
+Folgende Einstellungen auswählen:
 
-| Komponente | Technologie | Aufgabe |
-|---|---|---|
-| Frontend | React, TypeScript, Vite | Benutzeroberfläche und PDF-Viewer |
-| Backend | Python, FastAPI | REST-API und Dokumentenverarbeitung |
-| Datenbank | PostgreSQL 16 | Speicherung von Dokumentmetadaten und Anwendungsdaten |
-| Infrastruktur | Docker Compose | Lokale Entwicklungsumgebung |
+- Operating System: Linux
+- Architecture: x64
 
-### Anwendungsendpunkte
+GitHub zeigt anschließend die passenden Installations- und Konfigurationsbefehle an.
 
-| Dienst | URL |
-|---|---|
-| Frontend | [http://localhost:3000](http://localhost:3000) |
-| Backend-API | [http://localhost:8000](http://localhost:8000) |
-| API-Dokumentation | [http://localhost:8000/docs](http://localhost:8000/docs) |
-| Backend-Health-Check | [http://localhost:8000/health](http://localhost:8000/health) |
-| Datenbank-Health-Check | [http://localhost:8000/health/db](http://localhost:8000/health/db) |
+### 2. Runner installieren und konfigurieren
 
----
+Die von GitHub angezeigten Download- und Konfigurationsbefehle auf dem Debian-Host ausführen.
 
-## 🚀 Installation und Start
+Anschließend den Runner als Systemdienst installieren und starten:
 
-### Voraussetzungen
+```bash
+sudo ./svc.sh install
+sudo ./svc.sh start
+```
+
+Status überprüfen:
+
+```bash
+sudo ./svc.sh status
+```
+
+### 3. Voraussetzungen für CD
+
+Auf dem Runner-Host müssen folgende Komponenten verfügbar sein:
 
 - Docker Engine
-- Docker Compose
-- Git
+- Docker Compose Plugin
+- Ansible
+- Ansible Collection `community.docker`
+- SSH-Zugang zu den Deployment-Servern
 
-### 1. Repository klonen
+Der Runner muss online sein und die Labels `self-hosted`, `Linux` und `X64` besitzen.
 
-```bash
-git clone <DEINE_REPOSITORY_URL>
-cd LexiPDF
-```
+### 4. GitHub Secrets konfigurieren
 
-Ersetze `<DEINE_REPOSITORY_URL>` durch die URL deines GitHub- oder Gitea-Repositories.
+Unter:
 
-### 2. Umgebungsvariablen konfigurieren
+`Settings → Secrets and variables → Actions`
 
-Erstelle eine lokale `.env`-Datei:
+Folgende Repository Secrets hinterlegen:
 
-```bash
-cp .env.example .env
-```
+| Secret | Zweck |
+|---|---|
+| `GHCR_TOKEN` | Zugriff auf private GHCR Images |
+| `ANSIBLE_SSH_PRIVATE_KEY` | SSH-Authentifizierung für die Deployment-Server |
 
-Öffne die Datei und setze einen sicheren Wert für `POSTGRES_PASSWORD`.
+Die Secrets dürfen niemals im Repository gespeichert werden.
 
-**Wichtig:** Die `.env`-Datei darf keine Passwörter oder andere Geheimnisse in das Git-Repository übertragen. Prüfe, dass sie in `.gitignore` ausgeschlossen ist.
+## 📂 Projektstatus
 
-### 3. Anwendung starten
+**Aktueller Meilenstein:** PDF-Upload, Dokumentenanzeige und Textauswahl.
 
-Baue die Images und starte die Container im Hintergrund:
-
-```bash
-docker compose up --build -d
-```
-
-Status der Container überprüfen:
-
-```bash
-docker compose ps
-```
-
-Logs anzeigen:
-
-```bash
-docker compose logs -f
-```
-
-Anschließend ist die Anwendung unter [http://localhost:3000](http://localhost:3000) erreichbar.
+Geplant:
+- Übersetzung ausgewählter Texte
+- Wortdefinitionen
+- Vokabelverwaltung
+- Kubernetes-Deployment
 
 ---
 
-## 🧪 Backend-Tests
-
-Wechsle in das Backend-Verzeichnis:
-
-```bash
-cd backend
-```
-
-Installiere die Abhängigkeiten:
-
-```bash
-pip install -r requirements.txt
-```
-
-Führe die Tests aus:
-
-```bash
-pytest tests/
-```
-
-Für eine isolierte Python-Umgebung empfiehlt sich die Verwendung einer virtuellen Umgebung.
-
----
-
-## 🛑 Anwendung stoppen
-
-Container stoppen und entfernen, ohne benannte Volumes zu löschen:
-
-```bash
-docker compose down
-```
-
-Container entfernen und zusätzlich die zugehörigen benannten Volumes löschen:
-
-```bash
-docker compose down -v
-```
-
-**Achtung:** Der zweite Befehl kann gespeicherte PostgreSQL-Daten und hochgeladene PDFs dauerhaft löschen. Verwende ihn nur, wenn du die lokale Umgebung bewusst zurücksetzen möchtest.
-
----
-
-## 🗺️ Entwicklungs-Roadmap
-
-### Meilenstein 1 – PDF-Reader
-
-- [x] PDF-Upload
-- [x] PDF-Viewer
-- [x] Textauswahl
-- [x] Erste Benutzeroberfläche
-
-### Meilenstein 2 – Übersetzung
-
-- [ ] Markierten Text an `/api/lookup` senden
-- [ ] Übersetzungen und Definitionen zurückgeben
-- [ ] Ergebnisse im Übersetzungsbereich anzeigen
-- [ ] Ladezustände und Fehlerbehandlung ergänzen
-
-### Meilenstein 3 – Vokabelverwaltung
-
-- [ ] Ausgewählte Wörter speichern
-- [ ] Gespeicherte Vokabeln abrufen
-- [ ] Vokabeleinträge löschen
-- [ ] Vokabeln dauerhaft in PostgreSQL speichern
-
-### Meilenstein 4 – DevOps und Deployment
-
-- [ ] CI/CD-Pipeline automatisieren
-- [ ] Container-Registry einrichten
-- [ ] Automatisierte Build- und Testphasen
-- [ ] Kubernetes-Deployment
-- [ ] Persistente Speicherung und Backup-Konzept
-
----
-
-## 🔐 Sicherheit und Datenspeicherung
-
-- Zugangsdaten über Umgebungsvariablen verwalten.
-- Die lokale `.env`-Datei nicht committen.
-- Hochgeladene PDFs und Datenbankdaten persistent speichern.
-- Backups einrichten, bevor wichtige Dokumente gespeichert werden.
-- Berechtigungen für Container und gespeicherte Dateien auf das notwendige Minimum beschränken.
-
----
-
-## 📌 Projektstatus
-
-LexiPDF befindet sich in aktiver Entwicklung. Der aktuelle Schwerpunkt liegt auf einem zuverlässigen PDF-Upload und einer stabilen Dokumentenanzeige. Anschließend folgen Übersetzung und Vokabelverwaltung.
-
-**Entwickelt unter der Marke IT FOR ALL.**
+**Developed under the IT FOR ALL brand.**
