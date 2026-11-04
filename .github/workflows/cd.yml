@@ -41,6 +41,13 @@ jobs:
       - name: Verify loaded SSH identity
         run: ssh-add -l
 
+      - name: Verify SSH connection to database server
+        run: |
+          ssh -vvv \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=no \
+            renatdb@192.168.0.190 "whoami"
+
       - name: Install Ansible Docker collection
         run: ansible-galaxy collection install community.docker
 
