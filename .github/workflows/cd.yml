@@ -38,6 +38,9 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}
 
+      - name: Verify loaded SSH identity
+        run: ssh-add -l
+
       - name: Install Ansible Docker collection
         run: ansible-galaxy collection install community.docker
 
