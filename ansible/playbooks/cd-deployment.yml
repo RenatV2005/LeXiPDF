@@ -1,19 +1,21 @@
-
 ---
 - name: Validate LEXiPDF deployment configuration
   hosts: localhost
   connection: local
   gather_facts: false
 
+  vars:
+    repository_dir: "{{ playbook_dir }}/../.."
+
   tasks:
-    - name: Check required Compose and secret template files
+    - name: Check required deployment files
       ansible.builtin.stat:
         path: "{{ item }}"
       loop:
-        - "{{ playbook_dir }}/../../deploy/database/compose.yml"
-        - "{{ playbook_dir }}/../../deploy/application/compose.yml"
-        - "{{ playbook_dir }}/../templates/secret-templates/.database-env.j2"
-        - "{{ playbook_dir }}/../templates/secret-templates/.application-env.j2"
+        - "{{ repository_dir }}/deploy/database/compose.yml"
+        - "{{ repository_dir }}/deploy/application/compose.yml"
+        - "{{ repository_dir }}/ansible/templates/secret-templates/.database-env.j2"
+        - "{{ repository_dir }}/ansible/templates/secret-templates/.application-env.j2"
       register: required_files
 
     - name: Fail if a required file is missing
@@ -24,7 +26,7 @@
         fail_msg: "Required deployment file is missing: {{ item.item }}"
       loop: "{{ required_files.results }}"
 
-    - name: Validate GHCR credentials are available
+    - name: Validate GHCR credentials
       ansible.builtin.assert:
         that:
           - lookup('ansible.builtin.env', 'GHCR_USERNAME') | length > 0
@@ -33,7 +35,7 @@
       no_log: true
 
 
-- name: Deploy LEXiPDF database
+- name: Configure NFS server and deploy PostgreSQL
   hosts: database_server_01
   become: true
   gather_facts: false
@@ -43,7 +45,59 @@
     repository_dir: "{{ playbook_dir }}/../.."
     ansible_ssh_private_key_file: /home/renatdebianroot/.ssh/proxmox_ansible
 
+    nfs_uploads_directory: /srv/lexipdf/uploads
+    nfs_client_ip: 192.168.0.160
+
   tasks:
+
+    - name: Install NFS server
+      ansible.builtin.apt:
+        name: nfs-kernel-server
+        state: present
+        update_cache: true
+
+    - name: Ensure uploads directory exists with application permissions
+      ansible.builtin.file:
+        path: "{{ nfs_uploads_directory }}"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: "0770"
+
+    - name: Configure NFS export
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        regexp: '^/srv/lexipdf/uploads\s+'
+        line: "{{ nfs_uploads_directory }} {{ nfs_client_ip }}(rw,sync,root_squash,no_subtree_check)"
+        state: present
+        backup: true
+      notify: Refresh NFS exports
+
+    - name: Apply NFS export configuration
+      ansible.builtin.meta: flush_handlers
+
+    - name: Ensure NFS server is enabled and running
+      ansible.builtin.service:
+        name: nfs-kernel-server
+        state: started
+        enabled: true
+
+    - name: Verify NFS export
+      ansible.builtin.command:
+        argv:
+          - exportfs
+          - -v
+      register: nfs_export_status
+      changed_when: false
+
+    - name: Assert NFS export is configured
+      ansible.builtin.assert:
+        that:
+          - "'/srv/lexipdf/uploads' in nfs_export_status.stdout"
+          - "'192.168.0.160' in nfs_export_status.stdout"
+          - "'root_squash' in nfs_export_status.stdout"
+        fail_msg: "LEXiPDF uploads NFS export is not configured correctly."
+
     - name: Create database deployment directory
       ansible.builtin.file:
         path: "{{ deployment_dir }}"
@@ -102,8 +156,16 @@
       delay: 5
       until: postgres_health.rc == 0
 
+  handlers:
+    - name: Refresh NFS exports
+      ansible.builtin.command:
+        argv:
+          - exportfs
+          - -ra
+      changed_when: true
 
-- name: Deploy LEXiPDF application
+
+- name: Configure NFS client and deploy LEXiPDF application
   hosts: application_server_01
   become: true
   gather_facts: false
@@ -113,7 +175,110 @@
     repository_dir: "{{ playbook_dir }}/../.."
     ansible_ssh_private_key_file: /home/renatdebianroot/.ssh/proxmox_ansible
 
+    nfs_server_ip: 192.168.0.190
+    nfs_uploads_directory: /srv/lexipdf/uploads
+
   tasks:
+
+    - name: Install NFS client
+      ansible.builtin.apt:
+        name: nfs-common
+        state: present
+        update_cache: true
+
+    - name: Ensure NFS mountpoint exists
+      ansible.builtin.file:
+        path: "{{ nfs_uploads_directory }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Check whether uploads directory is already mounted
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - -n
+          - -t
+          - nfs
+          - -T
+          - "{{ nfs_uploads_directory }}"
+      register: nfs_mount_check
+      changed_when: false
+      failed_when: false
+
+    - name: Inspect existing local files before mounting NFS
+      ansible.builtin.find:
+        paths: "{{ nfs_uploads_directory }}"
+        hidden: true
+        recurse: false
+        file_type: any
+      register: local_upload_files
+      when: nfs_mount_check.rc != 0
+
+    - name: Refuse to hide existing local uploads
+      ansible.builtin.assert:
+        that:
+          - local_upload_files.matched | int == 0
+        fail_msg: >-
+          The local uploads directory is not empty. Refusing to mount NFS
+          over existing data. Migrate the existing files before deployment.
+      when: nfs_mount_check.rc != 0
+
+    - name: Configure persistent NFS mount in fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: '^192\.168\.0\.190:/srv/lexipdf/uploads\s+'
+        line: "{{ nfs_server_ip }}:/srv/lexipdf/uploads {{ nfs_uploads_directory }} nfs rw,_netdev,hard,timeo=600,retrans=2 0 0"
+        state: present
+        backup: true
+
+    - name: Mount NFS uploads share
+      ansible.builtin.command:
+        argv:
+          - mount
+          - "{{ nfs_uploads_directory }}"
+      register: nfs_mount_result
+      changed_when: true
+      retries: 5
+      delay: 5
+      until: nfs_mount_result.rc == 0
+      when: nfs_mount_check.rc != 0
+
+    - name: Verify NFS mount source
+      ansible.builtin.command:
+        argv:
+          - findmnt
+          - -n
+          - -o
+          - SOURCE
+          - -T
+          - "{{ nfs_uploads_directory }}"
+      register: nfs_mount_source
+      changed_when: false
+
+    - name: Assert correct NFS server is mounted
+      ansible.builtin.assert:
+        that:
+          - nfs_mount_source.stdout | trim == '192.168.0.190:/srv/lexipdf/uploads'
+        fail_msg: "The uploads directory is not mounted from the configured NFS server."
+
+    - name: Verify uploads directory is writable by application UID
+      ansible.builtin.command:
+        argv:
+          - docker
+          - run
+          - --rm
+          - --user
+          - "1000:1000"
+          - --volume
+          - /srv/lexipdf/uploads:/uploads
+          - alpine:3.22
+          - sh
+          - -ec
+          - 'touch /uploads/.ansible-write-test && rm /uploads/.ansible-write-test'
+      changed_when: false
+
     - name: Create application deployment directory
       ansible.builtin.file:
         path: "{{ deployment_dir }}"
